@@ -1,0 +1,8 @@
+start - Start the bot
+setgroup - Set the destination group. /setgroup *a name*
+mygroup - Know the your current destination group.
+deletegroup - Delete the specified group from your list. /deletegroup *a name*
+listgroup - Get a list of all your registered groups.
+register - Register the current group to your list with the specified name. /register *a name*
+burnprobability - Get the current group probability of being burned.
+setburnprobability - [Administrator only] Change the current group probability of being burned.
