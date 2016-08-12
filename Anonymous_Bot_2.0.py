@@ -67,8 +67,7 @@ def handle(msg):
 
 
 print "Starting Bot..."
-TOKEN = os.environ['TOKEN']
-print TOKEN
+TOKEN = sys.argv[1]
 
 # c.users_map = c.Users_Map()
 # c.groups_map = {}
