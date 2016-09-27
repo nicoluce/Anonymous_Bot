@@ -62,10 +62,6 @@ def handle(msg):
 	except telepot.exception.BotWasBlockedError, e:
 		bot.sendMessage(msg['chat']['id'], 'I\'m blocked from that chat!')
 
-# Getting the token from command-line is better than embedding it in code,
-# because tokens are supposed to be kept secret.
-
-
 print "Starting Bot..."
 TOKEN = sys.argv[1]
 
@@ -81,6 +77,5 @@ bot = telepot.Bot(TOKEN)
 bot.message_loop(handle)
 print ('Listening ...')
 
-# Keep the program running.
 while 1:
 	time.sleep(10)
