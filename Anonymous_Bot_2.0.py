@@ -2,40 +2,39 @@
 # Nicolas Luce
 
 import telepot
-import sys
-import time
-import pprint
+import sys,time,pprint
 
+from database import db
 import functions as f
-import classes as c
-
+from functions import *
+from classes import *
 
 def handle(msg):
 	print 'Message received...'
-	# pprint.pprint(msg)
+	pprint.pprint(msg)
 
 	try:
 		if 'data' in msg:
-			f.on_callback_query(bot, msg)
+			on_callback_query(bot, msg)
 			return
 		
-		if (f.on_user_joins(bot, msg) or
-			f.on_user_lefts(bot, msg) or 
-			f.on_title_change(msg)):
+		if (on_user_joins(bot, msg) or
+			on_user_lefts(bot, msg) or 
+			on_title_change(msg)):
 			return
 
-		if f.isCommand(msg):
-			f.commandHandler(bot, msg, f.getCommand(msg), f.getCommandParameters(msg))
+		if isCommand(msg):
+			commandHandler(bot, msg, getCommand(msg), getCommandParameters(msg))
 			return
 		else:
-			if f.is_private(msg):
-				user = c.User(msg)
-				if user.id in c.users_map.map:
-					choosen_group_id = c.users_map.get_choosen(user.id)
+			if is_private(msg):
+				user = User(msg)
+				if is_user_on_db(user.id):
+					choosen_group_id = f.users_db.get_document({'_id':user.id})['choosen_group']
 					if choosen_group_id is not None:
-						if f.isMember(bot, bot.getMe()['id'], choosen_group_id):
-							if f.isMember(bot, user.id, choosen_group_id):
-								f.resend_message_to(bot, msg, user, choosen_group_id)
+						if isMember(bot, bot.getMe()['id'], choosen_group_id):
+							if isMember(bot, user.id, choosen_group_id):
+								resend_message_to(bot, msg, user, choosen_group_id)
 								return
 							else:
 								# No es miembro
@@ -64,18 +63,16 @@ def handle(msg):
 
 print "Starting Bot..."
 TOKEN = sys.argv[1]
+USER_DB = sys.argv[2]
+PASSWORD_DB = sys.argv[3]
 
-# c.users_map = c.Users_Map()
-# c.groups_map = {}
-# f.save_obj(c.users_map, "users_map")
-# f.save_obj(c.groups_map, "groups_map")
+f.users_db = db(USER_DB, PASSWORD_DB, 'anon_users')
+f.groups_db = db(USER_DB, PASSWORD_DB, 'anon_groups')
 
-c.users_map = f.load_obj('users_map')
-c.groups_map = f.load_obj('groups_map')
 bot = telepot.Bot(TOKEN)
 
 bot.message_loop(handle)
-print ('Listening ...')
+print ('Listening...')
 
 while 1:
 	time.sleep(10)

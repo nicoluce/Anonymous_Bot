@@ -7,7 +7,12 @@ import time
 import os.path
 import pickle
 from telepot.namedtuple import InlineKeyboardMarkup, InlineKeyboardButton
-import classes as c
+from database import db
+from classes import *
+
+
+global users_db
+global groups_db
 
 text_msgs = {
 	'welcome': 
@@ -59,23 +64,43 @@ def load_obj(name):
 	with open(path + '/' + name + '.pkl', 'rb') as f:
 		return pickle.load(f)
 
+
+def get_groups(user_id):
+	return users_db.get_document({'_id':user_id})['groups_list']
+
+def is_user_on_db(user_id):
+	return (users_db.get_document({'_id':user_id}) != None)
+
+def is_group_on_db(group_id):
+	return (groups_db.get_document({'_id':group_id}) != None)
+
+
 def on_user_joins(bot, msg):
 	if ('new_chat_member' in msg and 
 		'username' in msg['new_chat_member'] and 
 		msg['new_chat_member']['username'] == bot.getMe()['username']):
 
-		newgroup = c.GroupChat(msg)
-		c.groups_map[newgroup.id] = {'group': newgroup, 'burn':0}
-		save_obj(c.groups_map, "groups_map")
+		newgroup = GroupChat(msg)
+		
+		new_post = {'_id': newgroup.id,
+					'group_title':newgroup.title,
+					'burn': 0}
+
+		groups_db.insert_document(new_post)
+
+		# groups_map[newgroup.id] = {'group': newgroup, 'burn':0}
+		# save_obj(groups_map, "groups_map")
 		bot.sendMessage(chat_id=msg['chat']['id'], text=text_msgs['welcome'], reply_to_message_id=msg['message_id'])
 		return True
 	return False
 
 def on_title_change(msg):
 	if 'new_chat_title' in msg:
-		if is_group(msg) and msg['chat']['id'] in c.groups_map:
-			c.groups_map[msg['chat']['id']]['group'].title = msg['chat']['title']
-			save_obj(c.groups_map, "groups_map")
+		if is_group(msg) and is_group_on_db(msg['chat']['id']):
+			groups_db.update_post({'_id':msg['chat']['id']}, 'group_title', msg['chat']['group_title'])
+
+			# groups_map[msg['chat']['id']]['group'].title = msg['chat']['group_title']
+			# save_obj(groups_map, "groups_map")
 			return True
 	return False
 
@@ -83,8 +108,11 @@ def on_user_lefts(bot, msg):
 	if ('left_chat_member' in msg and 
 		'username' in msg['left_chat_member'] and 
 		msg['left_chat_member']['username'] == bot.getMe()['username']):
-		del c.groups_map[msg['chat']['id']]
-		save_obj(c.groups_map, "groups_map")
+		
+		groups_db.delete_documents({'_id':msg['chat']['id']})
+
+		# del groups_map[msg['chat']['id']]
+		# save_obj(groups_map, "groups_map")
 		return True
 	return False
 
@@ -105,10 +133,19 @@ def commandHandler(bot, msg, command, parameters= None):
 
 def command_start(bot, msg):
 	bot.sendMessage(msg['chat']['id'], text_msgs['welcome'], reply_to_message_id=msg['message_id'])
-	if is_private(msg) and msg['from']['id'] not in c.users_map.map:
-		user = c.User(msg)
-		c.users_map.add_user(user)
-		save_obj(c.users_map, "users_map")
+	if is_private(msg) and not is_user_on_db(msg['from']['id']):
+		user = User(msg)
+		
+		new_post = {
+			'_id':user.id,
+			'groups_list':[],
+			'choosen_group':None
+		}
+
+		users_db.insert_document(new_post)
+
+		# users_map.add_user(user)
+		# save_obj(users_map, "users_map")
 		command_refresh(bot, msg)
 	return
 
@@ -116,17 +153,18 @@ def command_info_help(bot, msg):
 	bot.sendMessage(msg['chat']['id'], text_msgs['welcome'], reply_to_message_id=msg['message_id'])
 	return
 
+
 def command_setgroup(bot, msg):
 		if is_private(msg):
-			if msg['chat']['id'] in c.users_map.map:
-				if len(c.users_map.get_groups(msg['chat']['id'])) == 0:
+			if is_user_on_db(msg['chat']['id']):
+				if len(get_groups(msg['chat']['id'])) == 0:
 					bot.sendMessage(msg['chat']['id'], text='You don\'t have any group matched with you. Use \'/refresh\' to update your group list.')	
 				else:
 					keyboardButtons = []
-					for g_id in c.users_map.get_groups(msg['chat']['id']):
-						if g_id in c.groups_map:
+					for g_id in get_groups(msg['chat']['id']):
+						if is_group_on_db(g_id):
 							_callback_data = 'setgroup@' + str(g_id)
-							keyboardButtons.append(InlineKeyboardButton(text=c.groups_map[g_id]['group'].title, callback_data= _callback_data))
+							keyboardButtons.append(InlineKeyboardButton(text=groups_db.get_document({'_id':g_id})['group_title'], callback_data= _callback_data))
 
 					markup = InlineKeyboardMarkup(row_width=1, inline_keyboard=[keyboardButtons])
 					bot.sendMessage(msg['from']['id'], "Choose a group: ", reply_markup=markup)
@@ -136,9 +174,10 @@ def command_setgroup(bot, msg):
 
 def command_mygroup(bot, msg):
 	if is_private(msg):
-		if msg['chat']['id'] in c.users_map.map:
-			if c.users_map.get_choosen(msg['chat']['id']) != None:
-				group_title = c.groups_map[c.users_map.get_choosen(msg['chat']['id'])]['group'].title
+		if is_user_on_db(msg['chat']['id']):
+			choosen_id = users_db.get_document({'_id':msg['chat']['id']})['choosen_group']
+			if choosen_id != None:
+				group_title = groups_db.get_document({'_id':choosen_id})['group_title']
 				bot.sendMessage(msg['chat']['id'], text_msgs['mygroup'].format(group_title=group_title))
 			else:
 				bot.sendMessage(msg['chat']['id'], text_msgs['info'].format(user_name=msg['chat']['first_name']))
@@ -148,16 +187,18 @@ def command_mygroup(bot, msg):
 
 def command_deleteme(bot, msg):
 	if is_private(msg):
-		if msg['from']['id'] in c.users_map.map:
-			del c.users_map.map[msg['from']['id']]
-			save_obj(c.users_map, "users_map")
+		if is_user_on_db(msg['from']['id']):
+			users_db.delete_documents({'_id':msg['from']['id']})
+
+			# del users_map.map[msg['from']['id']]
+			# save_obj(users_map, "users_map")
 			bot.sendMessage(msg['chat']['id'], text='You\'ve been completly removed from the bot\'s database.')
 	return
 
 def command_burn(bot, msg):
 	if is_group(msg):
-		if msg['chat']['id'] in c.groups_map:
-			bot.sendMessage(msg['chat']['id'], text='Current chance is set to: ' + str(c.groups_map[msg['chat']['id']]['burn']) + '%')
+		if is_group_on_db(msg['chat']['id']):
+			bot.sendMessage(msg['chat']['id'], text='Current chance is set to: ' + str(groups_db.get_document({'_id':msg['chat']['id']})['burn']) + '%')
 		else:
 			command_start(bot, msg)
 	return
@@ -176,7 +217,7 @@ def command_setburn(bot, msg, n):
 			if percent.isnumeric():
 				percent = int(percent)
 			else:
-				bot.sendMessage(msg['chat']['id'], text='It has to be a numeric value!', reply_to_message_id=msg[msg_id])
+				bot.sendMessage(msg['chat']['id'], text='It has to be a numeric value!', reply_to_message_id=msg['message_id'])
 				return
 
 			if percent > 100:
@@ -186,27 +227,29 @@ def command_setburn(bot, msg, n):
 
 			bot.sendMessage(msg['chat']['id'], text='Burn probability will be changed to ' + str(percent) + '% in 5 seconds.')
 			time.sleep(5)
-			c.groups_map[msg['chat']['id']]['burn'] = percent
-			save_obj(c.groups_map, 'groups_map')
+
+			groups_db.update_post({'_id':msg['chat']['id']}, 'burn', percent)
+			# groups_map[msg['chat']['id']]['burn'] = percent
+			# save_obj(groups_map, 'groups_map')
 			bot.sendMessage(msg['chat']['id'], text='Burn probability changed to ' + str(percent) + '%.')
 		else:
 			bot.sendMessage(msg['chat']['id'], text='You\'ve to be an administrator to do that!')
 
 def command_refresh(bot, msg):
 	if is_private(msg):
-		if msg['from']['id'] in c.users_map.map:
-			for g_id in c.users_map.get_groups(msg['from']['id']):
-				if g_id not in c.groups_map:
-					c.users_map.map[msg['from']['id']].delete_group(g_id)
-			save_obj(c.users_map, "users_map")
+		if is_user_on_db(msg['from']['id']):
+			for g_id in get_groups(msg['from']['id']):
+				if not is_group_on_db(g_id):
+					delete_group(msg['chat']['id'], g_id)
+			# save_obj(users_map, "users_map")
 
-			if len(c.groups_map) == 0:
+			if groups_db.get_document() == None:
 				bot.sendMessage(msg['chat']['id'], text='Oops!! Looks like I\'m not in any group right now. Add me to the ones where you wish to use me.')
 			else:
-				for g in c.groups_map.keys():
-					if isMember(bot, msg['chat']['id'], c.groups_map[g]['group'].id):
-						c.users_map.map[msg['chat']['id']].add_group(c.groups_map[g]['group'].id)
-				save_obj(c.users_map, "users_map")
+				for g in groups_db.find_documents():
+					if isMember(bot, msg['chat']['id'], g['_id']) and g['_id'] not in get_groups(msg['chat']['id']):
+						users_db.collection.update_one({'_id':msg['chat']['id']}, {'$push':{'groups_list':g['_id']}})
+				# save_obj(users_map, "users_map")
 				bot.sendMessage(msg['chat']['id'], text='Group list updated.')
 				command_setgroup(bot, msg)
 		else:
@@ -219,13 +262,14 @@ def on_callback_query(bot, msg):
 
 	query_data = query_data.split('@', 1)
 	if(query_data[0] == 'setgroup' and
-		from_id in c.users_map.map and
-		int(query_data[1]) in c.groups_map):
-		c.users_map.map[from_id].set_choosen(int(query_data[1]))
+		is_user_on_db(from_id) and
+		is_group_on_db(int(query_data[1]))):
 
-		save_obj(c.users_map, 'users_map')
+		users_db.update_post({'_id':from_id}, 'choosen_group', int(query_data[1]))
+		# users_map.map[from_id].set_choosen(int(query_data[1]))
+		# save_obj(users_map, 'users_map')
 
-		group_title = c.groups_map[int(query_data[1])]['group'].title
+		group_title = groups_db.get_document({'_id':int(query_data[1])})['group_title']
 		bot.answerCallbackQuery(query_id, text_msgs['setgroup'].format(group_title=group_title))
 		
 		msg_id = (msg['message']['chat']['id'], msg['message']['message_id'])
@@ -235,7 +279,7 @@ def on_callback_query(bot, msg):
 
 def resend_message_to(bot, message, user, choosen_group_id):
 	
-	burn = random.randint(1,100) < c.groups_map[choosen_group_id]['burn']
+	burn = random.randint(1,100) < groups_db.get_document({'_id':choosen_group_id})['burn']
 
 	if burn:
 		print 'fowarding message...' 
@@ -244,7 +288,7 @@ def resend_message_to(bot, message, user, choosen_group_id):
 
 	if 'venue' in message:
 		print 'sending venue...'
-		bot.sendVenue(choosen_group_id, message['venue']['location']['longitude'], message['venue']['location']['latitude'], message['venue']['title'], message['venue']['address'])
+		bot.sendVenue(choosen_group_id, message['venue']['location']['longitude'], message['venue']['location']['latitude'], message['venue']['group_title'], message['venue']['address'])
 
 	if 'location' in message:
 		print 'sending location...'
