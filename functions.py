@@ -178,7 +178,7 @@ def command_mygroup(bot, msg):
 			choosen_id = users_db.get_document({'_id':msg['chat']['id']})['choosen_group']
 			if choosen_id != None:
 				group_title = groups_db.get_document({'_id':choosen_id})['group_title']
-				bot.sendMessage(msg['chat']['id'], text_msgs['mygroup'].format(group_title=group_title))
+				bot.sendMessage(msg['chat']['id'], text_msgs['setgroup'].format(group_title=group_title))
 			else:
 				bot.sendMessage(msg['chat']['id'], text_msgs['info'].format(user_name=msg['chat']['first_name']))
 		else:

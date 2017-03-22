@@ -11,7 +11,7 @@ from classes import *
 
 def handle(msg):
 	print 'Message received...'
-	pprint.pprint(msg)
+	# pprint.pprint(msg)
 
 	try:
 		if 'data' in msg:
