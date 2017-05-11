@@ -97,7 +97,7 @@ def on_user_joins(bot, msg):
 def on_title_change(msg):
 	if 'new_chat_title' in msg:
 		if is_group(msg) and is_group_on_db(msg['chat']['id']):
-			groups_db.update_post({'_id':msg['chat']['id']}, 'group_title', msg['chat']['group_title'])
+			groups_db.update_post({'_id':msg['chat']['id']}, 'group_title':msg['chat']['group_title'])
 
 			# groups_map[msg['chat']['id']]['group'].title = msg['chat']['group_title']
 			# save_obj(groups_map, "groups_map")
