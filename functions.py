@@ -249,7 +249,7 @@ def command_refresh(bot, msg):
 				for g in groups_db.find_documents():
 					if isMember(bot, msg['chat']['id'], g['_id']) and g['_id'] not in get_groups(msg['chat']['id']):
 						users_db.collection.update_one({'_id':msg['chat']['id']}, {'$push':{'groups_list':g['_id']}})
-					elif !isMember(bot, msg['chat']['id'], g['_id']) and g['_id'] in get_groups(msg['chat']['id']):
+					elif not isMember(bot, msg['chat']['id'], g['_id']) and g['_id'] in get_groups(msg['chat']['id']):
 						users_db.collection.update_one({'_id':msg['chat']['id']}, {'$pull':{'groups_list':g['_id']}})
 
 				# save_obj(users_map, "users_map")
