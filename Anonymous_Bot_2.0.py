@@ -20,7 +20,8 @@ def handle(msg):
 		
 		if (on_user_joins(bot, msg) or
 			on_user_lefts(bot, msg) or 
-			on_title_change(msg)):
+			on_title_change(msg) or
+			on_group_migrate(bot, msg))::
 			return
 
 		if isCommand(msg):

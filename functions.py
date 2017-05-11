@@ -74,6 +74,24 @@ def is_user_on_db(user_id):
 def is_group_on_db(group_id):
 	return (groups_db.get_document({'_id':group_id}) != None)
 
+def on_group_migrate(bot, msg):
+	if ('migrate_from_chat_id' in msg):
+		docs = main_db.find_documents()
+
+		for group in docs:
+			main_db.update_post({'_id':group['group_id']}, 
+				'_id', msg['migrate_from_chat_id'])
+		return True
+	
+	if ('migrate_to_chat_id' in msg):
+		docs = main_db.find_documents()
+
+		for group in docs:
+			main_db.update_post({'_id':group['group_id']}, 
+				'_id', msg['migrate_to_chat_id'])
+		return True
+
+	return False
 
 def on_user_joins(bot, msg):
 	if ('new_chat_member' in msg and 
